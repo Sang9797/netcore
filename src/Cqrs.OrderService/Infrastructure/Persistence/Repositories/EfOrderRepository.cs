@@ -1,3 +1,4 @@
+using Cqrs.OrderService.Application.Abstractions.Data;
 using Cqrs.OrderService.Domain.Model;
 using Cqrs.OrderService.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;

@@ -59,6 +59,42 @@
         </rollback>
     </changeSet>
 
+    <changeSet id="005-create-outbox-schema" author="cqrs-order-service">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="outbox_messages"/>
+            </not>
+        </preConditions>
+        <sqlFile path="sql/005-create-outbox-schema.sql"
+                 relativeToChangelogFile="true"
+                 splitStatements="true"
+                 endDelimiter=";"/>
+        <rollback>
+            <sqlFile path="sql/005-create-outbox-schema-rollback.sql"
+                     relativeToChangelogFile="true"
+                     splitStatements="true"
+                     endDelimiter=";"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="006-create-inbox-and-audit-schema" author="cqrs-order-service">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="inbox_messages"/>
+            </not>
+        </preConditions>
+        <sqlFile path="sql/006-create-inbox-and-audit-schema.sql"
+                 relativeToChangelogFile="true"
+                 splitStatements="true"
+                 endDelimiter=";"/>
+        <rollback>
+            <sqlFile path="sql/006-create-inbox-and-audit-schema-rollback.sql"
+                     relativeToChangelogFile="true"
+                     splitStatements="true"
+                     endDelimiter=";"/>
+        </rollback>
+    </changeSet>
+
     <changeSet id="003-seed-inventory-data" author="cqrs-order-service" runInTransaction="false">
         <preConditions onFail="MARK_RAN">
             <tableExists tableName="products"/>

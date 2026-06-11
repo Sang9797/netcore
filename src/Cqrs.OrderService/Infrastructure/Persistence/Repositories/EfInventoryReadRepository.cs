@@ -1,3 +1,4 @@
+using Cqrs.OrderService.Application.Abstractions.Data;
 using Cqrs.OrderService.Application.Query;
 using Microsoft.EntityFrameworkCore;
 

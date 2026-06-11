@@ -19,9 +19,9 @@ help:
 	@echo ""
 
 run: migrate
-	docker compose up -d pgbouncer
+	docker compose up -d pgbouncer redis rabbitmq
 	set -a && [ -f ./.env ] && . ./.env || true && set +a && \
-	DB_HOST=$${LOCAL_DB_HOST:-localhost} DB_PORT=$${LOCAL_DB_PORT:-5433} \
+	ConnectionStrings__Default="Host=$${LOCAL_DB_HOST:-localhost};Port=$${LOCAL_DB_PORT:-5433};Database=$${DB_NAME:-orders_db};Username=$${DB_USERNAME:-$${DB_USER:-orders_user}};Password=$${DB_PASSWORD:-orders_pass};Pooling=true;Maximum Pool Size=20" \
 	ASPNETCORE_ENVIRONMENT=Development dotnet run --project src/Cqrs.OrderService/Cqrs.OrderService.csproj --urls http://localhost:8080
 
 migrate:
@@ -52,7 +52,7 @@ docker-up:
 
 docker-up-infra:
 	cp -n .env.example .env 2>/dev/null || true
-	docker compose up -d postgres pgbouncer prometheus grafana
+	docker compose up -d postgres pgbouncer redis rabbitmq prometheus grafana
 
 docker-down:
 	docker compose down

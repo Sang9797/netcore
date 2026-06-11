@@ -1,4 +1,5 @@
 using Cqrs.OrderService.Infrastructure.Persistence.Entities;
+using Cqrs.OrderService.Infrastructure.Integration;
 using Microsoft.EntityFrameworkCore;
 
 namespace Cqrs.OrderService.Infrastructure.Persistence;
@@ -15,12 +16,18 @@ public sealed class OrdersDbContext(DbContextOptions<OrdersDbContext> options) :
     public DbSet<UserEntity> Users => Set<UserEntity>();
     public DbSet<RoleEntity> Roles => Set<RoleEntity>();
     public DbSet<PermissionEntity> Permissions => Set<PermissionEntity>();
+    public DbSet<OutboxMessageEntity> OutboxMessages => Set<OutboxMessageEntity>();
+    public DbSet<InboxMessageEntity> InboxMessages => Set<InboxMessageEntity>();
+    public DbSet<IntegrationEventAuditEntity> IntegrationEventAudits => Set<IntegrationEventAuditEntity>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureOrders(modelBuilder);
         ConfigureInventory(modelBuilder);
         ConfigureUsers(modelBuilder);
+        ConfigureOutbox(modelBuilder);
+        ConfigureInbox(modelBuilder);
+        ConfigureIntegrationEventAudits(modelBuilder);
     }
 
     private static void ConfigureOrders(ModelBuilder modelBuilder)
@@ -164,6 +171,55 @@ public sealed class OrdersDbContext(DbContextOptions<OrdersDbContext> options) :
             entity.Property(e => e.PermissionId).HasColumnName("permission_id");
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.Description).HasColumnName("description");
+        });
+    }
+
+    private static void ConfigureOutbox(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<OutboxMessageEntity>(entity =>
+        {
+            entity.ToTable("outbox_messages");
+            entity.HasKey(e => e.OutboxMessageId);
+            entity.Property(e => e.OutboxMessageId).HasColumnName("outbox_message_id");
+            entity.Property(e => e.EventType).HasColumnName("event_type");
+            entity.Property(e => e.RoutingKey).HasColumnName("routing_key");
+            entity.Property(e => e.Payload).HasColumnName("payload");
+            entity.Property(e => e.OccurredAt).HasColumnName("occurred_at");
+            entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.PublishedAt).HasColumnName("published_at");
+            entity.Property(e => e.PublishAttempts).HasColumnName("publish_attempts");
+            entity.Property(e => e.LastError).HasColumnName("last_error");
+        });
+    }
+
+    private static void ConfigureInbox(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<InboxMessageEntity>(entity =>
+        {
+            entity.ToTable("inbox_messages");
+            entity.HasKey(e => e.InboxMessageId);
+            entity.Property(e => e.InboxMessageId).HasColumnName("inbox_message_id");
+            entity.Property(e => e.EventType).HasColumnName("event_type");
+            entity.Property(e => e.RoutingKey).HasColumnName("routing_key");
+            entity.Property(e => e.ReceivedAt).HasColumnName("received_at");
+            entity.Property(e => e.ProcessedAt).HasColumnName("processed_at");
+        });
+    }
+
+    private static void ConfigureIntegrationEventAudits(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<IntegrationEventAuditEntity>(entity =>
+        {
+            entity.ToTable("integration_event_audits");
+            entity.HasKey(e => e.AuditId);
+            entity.Property(e => e.AuditId).HasColumnName("audit_id");
+            entity.Property(e => e.MessageId).HasColumnName("message_id");
+            entity.Property(e => e.EventType).HasColumnName("event_type");
+            entity.Property(e => e.RoutingKey).HasColumnName("routing_key");
+            entity.Property(e => e.AggregateId).HasColumnName("aggregate_id");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.OccurredAt).HasColumnName("occurred_at");
+            entity.Property(e => e.ProcessedAt).HasColumnName("processed_at");
         });
     }
 }

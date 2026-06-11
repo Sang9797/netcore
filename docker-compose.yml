@@ -25,6 +25,7 @@ networks:
 
 volumes:
   postgres_data:
+  redis_data:
   prometheus_data:
   grafana_data:
 
@@ -43,6 +44,10 @@ services:
         condition: service_completed_successfully
       pgbouncer:
         condition: service_started
+      redis:
+        condition: service_started
+      rabbitmq:
+        condition: service_started
     networks:
       - backend
       - monitoring
@@ -52,13 +57,16 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
-      DB_HOST: pgbouncer
-      DB_PORT: ${DB_PORT:-5432}
-      DB_NAME: ${DB_NAME:-orders_db}
-      DB_USERNAME: ${DB_USER:-orders_user}
-      DB_PASSWORD: ${DB_PASSWORD:-orders_pass}
+      ConnectionStrings__Default: Host=pgbouncer;Port=${DB_PORT:-5432};Database=${DB_NAME:-orders_db};Username=${DB_USER:-orders_user};Password=${DB_PASSWORD:-orders_pass};Pooling=true;Maximum Pool Size=20
       Jwt__Secret: ${APP_JWT_SECRET}
       Jwt__ExpirationMs: ${APP_JWT_EXPIRATION_MS:-86400000}
+      Redis__Enabled: "true"
+      Redis__ConnectionString: ${REDIS_HOST:-redis}:${REDIS_PORT:-6379}
+      RabbitMq__Enabled: "true"
+      RabbitMq__HostName: ${RABBITMQ_HOST:-rabbitmq}
+      RabbitMq__Port: ${RABBITMQ_PORT:-5672}
+      RabbitMq__UserName: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASS:-guest}
       Database__ApplyMigrations: "false"
     deploy:
       resources:
@@ -145,6 +153,30 @@ services:
       resources:
         limits:
           memory: 64m
+
+  redis:
+    image: redis:7-alpine
+    container_name: cqrs-redis
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: cqrs-rabbitmq
+    restart: unless-stopped
+    networks:
+      - backend
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-guest}
 
   # ── Nginx ──────────────────────────────────────────────────────────────────
   nginx:

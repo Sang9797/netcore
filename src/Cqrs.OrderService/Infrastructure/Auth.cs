@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using Cqrs.OrderService.Application.Abstractions.Security;
 using Cqrs.OrderService.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.EntityFrameworkCore;
@@ -16,9 +17,7 @@ public sealed class JwtOptions
     public long ExpirationMs { get; set; } = 86_400_000;
 }
 
-public sealed record AppUser(string Username, string PasswordHash, bool Enabled, IReadOnlySet<string> Authorities);
-
-public sealed class UserRepository(OrdersDbContext dbContext)
+public sealed class UserRepository(OrdersDbContext dbContext) : IUserReadRepository
 {
     public async Task<AppUser?> FindByUsername(string username, CancellationToken cancellationToken)
     {
@@ -42,7 +41,7 @@ public sealed class UserRepository(OrdersDbContext dbContext)
     }
 }
 
-public sealed class JwtTokenService(IConfiguration configuration)
+public sealed class JwtTokenService(IConfiguration configuration) : ITokenService
 {
     public string GenerateToken(AppUser user)
     {
@@ -137,7 +136,7 @@ public sealed class JwtTokenService(IConfiguration configuration)
     }
 }
 
-public static class PasswordVerifier
+public sealed class PasswordVerifier : IPasswordVerifier
 {
     private static readonly Dictionary<string, string> SeedPasswords = new(StringComparer.Ordinal)
     {
@@ -146,7 +145,7 @@ public static class PasswordVerifier
         ["testuser"] = "testpass"
     };
 
-    public static bool Verify(string username, string password, string passwordHash)
+    public bool Verify(string username, string password, string passwordHash)
     {
         if (passwordHash.StartsWith("$2", StringComparison.Ordinal))
         {

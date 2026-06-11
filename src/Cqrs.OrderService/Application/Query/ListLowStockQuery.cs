@@ -1,4 +1,4 @@
-using Cqrs.OrderService.Bus.Query;
+using Cqrs.OrderService.Application.Abstractions.Messaging;
 
 namespace Cqrs.OrderService.Application.Query;
 

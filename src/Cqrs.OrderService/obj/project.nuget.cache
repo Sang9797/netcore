@@ -1,17 +1,35 @@
 {
   "version": 2,
-  "dgSpecHash": "b5pmWcHHxqc=",
+  "dgSpecHash": "9GsJgrdoanI=",
   "success": true,
   "projectFilePath": "/home/sangle/codex/netcore/src/Cqrs.OrderService/Cqrs.OrderService.csproj",
   "expectedPackageFiles": [
+    "/home/sangle/.nuget/packages/dapper/2.0.123/dapper.2.0.123.nupkg.sha512",
+    "/home/sangle/.nuget/packages/fluentresults/3.16.0/fluentresults.3.16.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/fluentvalidation/12.1.0/fluentvalidation.12.1.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/fluentvalidation.dependencyinjectionextensions/12.1.0/fluentvalidation.dependencyinjectionextensions.12.1.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/hangfire.aspnetcore/1.8.14/hangfire.aspnetcore.1.8.14.nupkg.sha512",
+    "/home/sangle/.nuget/packages/hangfire.core/1.8.14/hangfire.core.1.8.14.nupkg.sha512",
+    "/home/sangle/.nuget/packages/hangfire.netcore/1.8.14/hangfire.netcore.1.8.14.nupkg.sha512",
+    "/home/sangle/.nuget/packages/hangfire.postgresql/1.20.8/hangfire.postgresql.1.20.8.nupkg.sha512",
+    "/home/sangle/.nuget/packages/mediatr/13.1.0/mediatr.13.1.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/mediatr.contracts/2.0.1/mediatr.contracts.2.0.1.nupkg.sha512",
     "/home/sangle/.nuget/packages/microsoft.aspnetcore.openapi/10.0.8/microsoft.aspnetcore.openapi.10.0.8.nupkg.sha512",
     "/home/sangle/.nuget/packages/microsoft.entityframeworkcore/10.0.8/microsoft.entityframeworkcore.10.0.8.nupkg.sha512",
     "/home/sangle/.nuget/packages/microsoft.entityframeworkcore.abstractions/10.0.8/microsoft.entityframeworkcore.abstractions.10.0.8.nupkg.sha512",
     "/home/sangle/.nuget/packages/microsoft.entityframeworkcore.analyzers/10.0.8/microsoft.entityframeworkcore.analyzers.10.0.8.nupkg.sha512",
     "/home/sangle/.nuget/packages/microsoft.entityframeworkcore.relational/10.0.4/microsoft.entityframeworkcore.relational.10.0.4.nupkg.sha512",
+    "/home/sangle/.nuget/packages/microsoft.identitymodel.abstractions/8.14.0/microsoft.identitymodel.abstractions.8.14.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/microsoft.identitymodel.jsonwebtokens/8.14.0/microsoft.identitymodel.jsonwebtokens.8.14.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/microsoft.identitymodel.logging/8.14.0/microsoft.identitymodel.logging.8.14.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/microsoft.identitymodel.tokens/8.14.0/microsoft.identitymodel.tokens.8.14.0.nupkg.sha512",
     "/home/sangle/.nuget/packages/microsoft.openapi/2.0.0/microsoft.openapi.2.0.0.nupkg.sha512",
+    "/home/sangle/.nuget/packages/newtonsoft.json/13.0.3/newtonsoft.json.13.0.3.nupkg.sha512",
     "/home/sangle/.nuget/packages/npgsql/10.0.3/npgsql.10.0.3.nupkg.sha512",
-    "/home/sangle/.nuget/packages/npgsql.entityframeworkcore.postgresql/10.0.2/npgsql.entityframeworkcore.postgresql.10.0.2.nupkg.sha512"
+    "/home/sangle/.nuget/packages/npgsql.entityframeworkcore.postgresql/10.0.2/npgsql.entityframeworkcore.postgresql.10.0.2.nupkg.sha512",
+    "/home/sangle/.nuget/packages/pipelines.sockets.unofficial/2.2.8/pipelines.sockets.unofficial.2.2.8.nupkg.sha512",
+    "/home/sangle/.nuget/packages/rabbitmq.client/6.8.1/rabbitmq.client.6.8.1.nupkg.sha512",
+    "/home/sangle/.nuget/packages/stackexchange.redis/2.8.24/stackexchange.redis.2.8.24.nupkg.sha512"
   ],
   "logs": []
 }

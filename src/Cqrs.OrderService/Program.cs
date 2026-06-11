@@ -1,26 +1,20 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Cqrs.OrderService.Application;
-using Cqrs.OrderService.Application.Command;
-using Cqrs.OrderService.Application.Handler.Command;
-using Cqrs.OrderService.Application.Handler.Query;
-using Cqrs.OrderService.Application.Query;
-using Cqrs.OrderService.Bus.Command;
-using Cqrs.OrderService.Bus.Query;
-using Cqrs.OrderService.Domain.Model;
+using Cqrs.OrderService.Application.DependencyInjection;
 using Cqrs.OrderService.Infrastructure;
 using Cqrs.OrderService.Infrastructure.DependencyInjection;
+using Cqrs.OrderService.Infrastructure.Jobs;
 using Cqrs.OrderService.Infrastructure.Persistence;
-using Cqrs.OrderService.Infrastructure.Persistence.Repositories;
-using Cqrs.OrderService.Presentation;
+using Hangfire;
+using Hangfire.Dashboard;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
-var connectionString = BuildConnectionString(builder.Configuration);
+var connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("ConnectionStrings:Default is required");
 
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -31,26 +25,58 @@ builder.Services.AddControllers()
 builder.Services.AddOpenApi();
 builder.Services.AddHealthChecks();
 
-builder.Services.AddDbContext<OrdersDbContext>(options => options.UseNpgsql(connectionString));
-builder.Services.AddScoped<DatabaseInitializer>();
-builder.Services.AddScoped<CommandBus>();
-builder.Services.AddScoped<QueryBus>();
 builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices(builder.Configuration, connectionString);
 
 builder.Services.AddAuthentication("Bearer")
     .AddScheme<AuthenticationSchemeOptions, HmacJwtAuthenticationHandler>("Bearer", null);
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
+var hangfireOptions = app.Services.GetRequiredService<HangfireOptions>();
 
 using (var scope = app.Services.CreateScope())
 {
     await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().Initialize(CancellationToken.None);
 }
 
-app.UseGlobalExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
+
+if (hangfireOptions.Enabled)
+{
+    app.UseHangfireDashboard(
+        hangfireOptions.DashboardPath,
+        new DashboardOptions
+        {
+            Authorization = [app.Services.GetRequiredService<HangfireDashboardAuthorizationFilter>()]
+        });
+
+    RecurringJob.AddOrUpdate<OutboxBacklogMonitorJob>(
+        "outbox-backlog-monitor",
+        job => job.CheckBacklogAsync(CancellationToken.None),
+        hangfireOptions.BacklogMonitorCron);
+
+    RecurringJob.AddOrUpdate<AutoCancelStaleOrdersJob>(
+        "auto-cancel-stale-orders",
+        job => job.RunAsync(CancellationToken.None),
+        hangfireOptions.AutoCancelStaleOrdersCron);
+
+    RecurringJob.AddOrUpdate<DailyOperationsReportJob>(
+        "daily-operations-report",
+        job => job.RunAsync(CancellationToken.None),
+        hangfireOptions.DailyOperationsReportCron);
+
+    RecurringJob.AddOrUpdate<RetryFailedOutboxMessagesJob>(
+        "retry-failed-outbox-messages",
+        job => job.RunAsync(CancellationToken.None),
+        hangfireOptions.RetryFailedOutboxCron);
+
+    RecurringJob.AddOrUpdate<CleanupOldAuditRecordsJob>(
+        "cleanup-old-audit-records",
+        job => job.RunAsync(CancellationToken.None),
+        hangfireOptions.CleanupAuditCron);
+}
 
 app.MapControllers();
 app.MapOpenApi();
@@ -63,33 +89,7 @@ app.MapGet("/actuator/prometheus", () => Results.Text("""
     cqrs_order_service_info{runtime=".NET"} 1
     """, "text/plain")).AllowAnonymous();
 app.MapGet("/actuator/info", () => new { application = "cqrs-order-service", runtime = ".NET 10" }).AllowAnonymous();
-app.MapGet("/graphiql", () => Results.Content("""
-    <!doctype html><html><body><h1>GraphQL</h1><form method="post" action="/graphql">
-    <textarea name="query" rows="20" cols="100">{ lowStock { productId sku quantityFree } }</textarea>
-    <br><button type="submit">Run</button></form></body></html>
-    """, "text/html")).AllowAnonymous();
-app.MapGet("/graphql/schema.graphqls", async () =>
-{
-    var path = Path.Combine(AppContext.BaseDirectory, "graphql", "inventory.graphqls");
-    return Results.Text(await File.ReadAllTextAsync(path), "text/plain");
-}).AllowAnonymous();
 
 app.Run();
-
-static string BuildConnectionString(IConfiguration config)
-{
-    var configured = config.GetConnectionString("Default");
-    if (!string.IsNullOrWhiteSpace(configured))
-    {
-        return configured;
-    }
-
-    var host = config["DB_HOST"] ?? "localhost";
-    var port = config["DB_PORT"] ?? "5432";
-    var db = config["DB_NAME"] ?? "orders_db";
-    var user = config["DB_USERNAME"] ?? config["DB_USER"] ?? "orders_user";
-    var password = config["DB_PASSWORD"] ?? "orders_pass";
-    return $"Host={host};Port={port};Database={db};Username={user};Password={password};Pooling=true;Maximum Pool Size=20";
-}
 
 public partial class Program;

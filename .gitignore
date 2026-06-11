@@ -1,0 +1,44 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+build/
+publish/
+artifacts/
+TestResults/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE settings
+.vs/
+.vscode/
+.idea/
+
+# Package and tool caches
+packages/
+*.nupkg
+*.snupkg
+.nuget/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+*.cache
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python helper script artifacts
+__pycache__/
+*.py[cod]
+
+# Environment overrides
+.env
+.env.*
+!.env.example

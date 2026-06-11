@@ -1,7 +1,6 @@
 using Cqrs.OrderService.Application.Command;
 using Cqrs.OrderService.Application.Query;
-using Cqrs.OrderService.Bus.Command;
-using Cqrs.OrderService.Bus.Query;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,7 +9,7 @@ namespace Cqrs.OrderService.Presentation;
 [ApiController]
 [Authorize]
 [Route("api/v1/inventory")]
-public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus) : ControllerBase
+public sealed class InventoryController(ISender sender) : ControllerBase
 {
     [HttpGet("report")]
     public async Task<ActionResult<IReadOnlyList<InventoryReportItem>>> GetReport(
@@ -27,7 +26,8 @@ public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus
             Math.Max(0, minStock),
             Math.Max(0, page),
             Math.Clamp(pageSize, 1, 500));
-        return Ok(await queryBus.Dispatch(query, cancellationToken));
+        var result = await sender.Send(query, cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("products/{productId}/stock")]
@@ -35,7 +35,8 @@ public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus
         string productId,
         CancellationToken cancellationToken)
     {
-        return Ok(await queryBus.Dispatch(GetProductInventoryQuery.All(productId), cancellationToken));
+        var result = await sender.Send(GetProductInventoryQuery.All(productId), cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpGet("low-stock")]
@@ -44,9 +45,10 @@ public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus
         [FromQuery] int limit = 100,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await queryBus.Dispatch(
+        var result = await sender.Send(
             ListLowStockQuery.All(Math.Max(0, threshold), Math.Clamp(limit, 1, 500)),
-            cancellationToken));
+            cancellationToken);
+        return this.ToActionResult(result);
     }
 
     [HttpPost("reserve")]
@@ -54,10 +56,10 @@ public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus
         [FromBody] ReserveRequest request,
         CancellationToken cancellationToken)
     {
-        await commandBus.Dispatch(
+        var result = await sender.Send(
             new ReserveInventoryCommand(request.ProductId, request.WarehouseId, request.Quantity, request.OrderId),
             cancellationToken);
-        return NoContent();
+        return this.ToActionResult(result, _ => NoContent());
     }
 
     [HttpPost("release")]
@@ -65,10 +67,10 @@ public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus
         [FromBody] ReleaseRequest request,
         CancellationToken cancellationToken)
     {
-        await commandBus.Dispatch(
+        var result = await sender.Send(
             new ReleaseInventoryCommand(request.ProductId, request.WarehouseId, request.Quantity, request.OrderId),
             cancellationToken);
-        return NoContent();
+        return this.ToActionResult(result, _ => NoContent());
     }
 
     [HttpPost("adjust")]
@@ -76,9 +78,9 @@ public sealed class InventoryController(CommandBus commandBus, QueryBus queryBus
         [FromBody] AdjustRequest request,
         CancellationToken cancellationToken)
     {
-        await commandBus.Dispatch(
+        var result = await sender.Send(
             new AdjustInventoryCommand(request.ProductId, request.WarehouseId, request.Delta, request.Reason),
             cancellationToken);
-        return NoContent();
+        return this.ToActionResult(result, _ => NoContent());
     }
 }

@@ -1,57 +1,98 @@
-using System.Reflection;
-using Cqrs.OrderService.Bus.Command;
-using Cqrs.OrderService.Bus.Query;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using Cqrs.OrderService.Application.Abstractions.Data;
+using Cqrs.OrderService.Application.Abstractions.Security;
+using Cqrs.OrderService.Application.Abstractions.Caching;
+using Cqrs.OrderService.Application.Abstractions.Messaging;
+using Cqrs.OrderService.Infrastructure.Caching;
+using Cqrs.OrderService.Infrastructure.Integration;
+using Cqrs.OrderService.Infrastructure.Jobs;
+using Cqrs.OrderService.Infrastructure.Persistence;
+using Cqrs.OrderService.Infrastructure.Persistence.Repositories;
+using Hangfire;
+using Hangfire.PostgreSql;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using StackExchange.Redis;
 
 namespace Cqrs.OrderService.Infrastructure.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddInfrastructureServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        string connectionString)
     {
-        var assembly = Assembly.GetExecutingAssembly();
-        var concreteTypes = assembly
-            .GetTypes()
-            .Where(type => type is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false })
-            .ToArray();
+        var redisOptions = configuration.GetSection("Redis").Get<RedisOptions>() ?? new RedisOptions();
+        var rabbitMqOptions = configuration.GetSection("RabbitMq").Get<RabbitMqOptions>() ?? new RabbitMqOptions();
+        var hangfireOptions = configuration.GetSection("Hangfire").Get<HangfireOptions>() ?? new HangfireOptions();
 
-        foreach (var type in concreteTypes)
+        services.AddSingleton(redisOptions);
+        services.AddSingleton(rabbitMqOptions);
+        services.AddSingleton(hangfireOptions);
+        services.AddDbContext<OrdersDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddScoped<DatabaseInitializer>();
+        services.AddScoped<ITransactionManager, EfCoreTransactionManager>();
+        services.AddScoped<IOrderRepository, EfOrderRepository>();
+        services.AddScoped<IInventoryRepository, EfInventoryRepository>();
+        services.AddScoped<IInventoryReadRepository, EfInventoryReadRepository>();
+        services.AddScoped<IIntegrationEventAuditRepository, EfIntegrationEventAuditRepository>();
+        services.AddScoped<IUserReadRepository, UserRepository>();
+        services.AddScoped<ITokenService, JwtTokenService>();
+        services.AddScoped<IPasswordVerifier, PasswordVerifier>();
+        services.AddScoped<UserRepository>();
+        services.AddScoped<JwtTokenService>();
+        services.AddScoped<PasswordVerifier>();
+        services.AddScoped<OutboxDispatchProcessor>();
+        services.AddScoped<OutboxDispatchHangfireJob>();
+        services.AddScoped<OutboxBacklogMonitorJob>();
+        services.AddScoped<AutoCancelStaleOrdersJob>();
+        services.AddScoped<DailyOperationsReportJob>();
+        services.AddScoped<RetryFailedOutboxMessagesJob>();
+        services.AddScoped<CleanupOldAuditRecordsJob>();
+        services.AddSingleton<HangfireDashboardAuthorizationFilter>();
+
+        if (redisOptions.Enabled)
         {
-            RegisterMatchingInterface(services, type);
-            RegisterHandlers(services, type);
+            services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisOptions.ConnectionString));
+            services.AddSingleton<IQueryCache, RedisQueryCache>();
+            services.AddSingleton<ICacheVersionService, RedisCacheVersionService>();
+        }
+        else
+        {
+            services.AddSingleton<IQueryCache, NoOpQueryCache>();
+            services.AddSingleton<ICacheVersionService, NoOpCacheVersionService>();
+        }
+
+        if (rabbitMqOptions.Enabled)
+        {
+            services.AddScoped<IOutboxWriter, OutboxWriter>();
+            services.AddSingleton<RabbitMqConnectionFactory>();
+            services.AddSingleton<RabbitMqMessagePublisher>();
+            services.AddHostedService<RabbitMqOutboxDispatcher>();
+            if (rabbitMqOptions.ConsumerEnabled)
+            {
+                services.AddHostedService<RabbitMqEventConsumer>();
+            }
+        }
+        else
+        {
+            services.AddScoped<IOutboxWriter, NoOpOutboxWriter>();
+        }
+
+        if (hangfireOptions.Enabled)
+        {
+            services.AddHangfire((_, globalConfiguration) => globalConfiguration
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(connectionString)));
+
+            services.AddHangfireServer(serverOptions =>
+            {
+                serverOptions.WorkerCount = hangfireOptions.WorkerCount;
+            });
         }
 
         return services;
     }
-
-    private static void RegisterMatchingInterface(IServiceCollection services, Type implementationType)
-    {
-        if (!implementationType.Name.EndsWith("Service", StringComparison.Ordinal) &&
-            !implementationType.Name.EndsWith("Repository", StringComparison.Ordinal))
-        {
-            return;
-        }
-
-        services.TryAddScoped(implementationType);
-
-        var matchingInterface = implementationType.GetInterfaces()
-            .FirstOrDefault(@interface => string.Equals(@interface.Name, $"I{implementationType.Name}", StringComparison.Ordinal));
-
-        if (matchingInterface is not null)
-        {
-            services.TryAddScoped(matchingInterface, implementationType);
-        }
-    }
-
-    private static void RegisterHandlers(IServiceCollection services, Type implementationType)
-    {
-        foreach (var serviceType in implementationType.GetInterfaces().Where(IsHandlerInterface))
-        {
-            services.TryAddScoped(serviceType, implementationType);
-        }
-    }
-
-    private static bool IsHandlerInterface(Type type) =>
-        type.IsGenericType && type.GetGenericTypeDefinition() is var definition &&
-        (definition == typeof(ICommandHandler<,>) || definition == typeof(IQueryHandler<,>));
 }

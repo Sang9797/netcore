@@ -1,7 +1,6 @@
 using Cqrs.OrderService.Application.Command;
 using Cqrs.OrderService.Application.Query;
-using Cqrs.OrderService.Bus.Command;
-using Cqrs.OrderService.Bus.Query;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,7 +9,7 @@ namespace Cqrs.OrderService.Presentation;
 [ApiController]
 [Authorize]
 [Route("api/v1/orders")]
-public sealed class OrderController(CommandBus commandBus, QueryBus queryBus) : ControllerBase
+public sealed class OrderController(ISender sender) : ControllerBase
 {
     [HttpPost]
     public async Task<ActionResult<OrderResponse>> PlaceOrder(
@@ -28,8 +27,8 @@ public sealed class OrderController(CommandBus commandBus, QueryBus queryBus) : 
                     i.Currency))
                 .ToList());
 
-        var order = await commandBus.Dispatch(command, cancellationToken);
-        return Created($"/api/v1/orders/{order.OrderId}", OrderResponse.From(order));
+        var result = await sender.Send(command, cancellationToken);
+        return this.ToActionResult(result, order => Created($"/api/v1/orders/{order.OrderId}", OrderResponse.From(order)));
     }
 
     [HttpGet("{orderId}")]
@@ -37,8 +36,8 @@ public sealed class OrderController(CommandBus commandBus, QueryBus queryBus) : 
         string orderId,
         CancellationToken cancellationToken)
     {
-        var order = await queryBus.Dispatch(new GetOrderByIdQuery(orderId), cancellationToken);
-        return order is null ? NotFound() : Ok(OrderResponse.From(order));
+        var result = await sender.Send(new GetOrderByIdQuery(orderId), cancellationToken);
+        return this.ToActionResult(result, order => Ok(OrderResponse.From(order)));
     }
 
     [HttpGet]
@@ -46,15 +45,15 @@ public sealed class OrderController(CommandBus commandBus, QueryBus queryBus) : 
         [FromQuery] string customerId,
         CancellationToken cancellationToken)
     {
-        var orders = await queryBus.Dispatch(new ListOrdersByCustomerQuery(customerId), cancellationToken);
-        return Ok(orders.Select(OrderResponse.From).ToList());
+        var result = await sender.Send(new ListOrdersByCustomerQuery(customerId), cancellationToken);
+        return this.ToActionResult(result, orders => Ok(orders.Select(OrderResponse.From).ToList()));
     }
 
     [HttpPost("{orderId}/confirm")]
     public async Task<IActionResult> ConfirmOrder(string orderId, CancellationToken cancellationToken)
     {
-        await commandBus.Dispatch(new ConfirmOrderCommand(orderId), cancellationToken);
-        return NoContent();
+        var result = await sender.Send(new ConfirmOrderCommand(orderId), cancellationToken);
+        return this.ToActionResult(result, _ => NoContent());
     }
 
     [HttpDelete("{orderId}")]
@@ -63,7 +62,7 @@ public sealed class OrderController(CommandBus commandBus, QueryBus queryBus) : 
         [FromBody] CancelRequest request,
         CancellationToken cancellationToken)
     {
-        await commandBus.Dispatch(new CancelOrderCommand(orderId, request.Reason), cancellationToken);
-        return NoContent();
+        var result = await sender.Send(new CancelOrderCommand(orderId, request.Reason), cancellationToken);
+        return this.ToActionResult(result, _ => NoContent());
     }
 }

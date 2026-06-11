@@ -1,4 +1,4 @@
-using Cqrs.OrderService.Domain.Exception;
+using Cqrs.OrderService.Application.Abstractions.Data;
 using Cqrs.OrderService.Domain.Model;
 using Cqrs.OrderService.Infrastructure.Persistence.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -40,16 +40,6 @@ public sealed class EfInventoryRepository(OrdersDbContext dbContext) : IInventor
         string? notes,
         CancellationToken cancellationToken)
     {
-        if (!await dbContext.Products.AnyAsync(p => p.ProductId == productId, cancellationToken))
-        {
-            throw new ProductNotFoundException(productId);
-        }
-
-        if (!await dbContext.Warehouses.AnyAsync(w => w.WarehouseId == warehouseId, cancellationToken))
-        {
-            throw new WarehouseNotFoundException(warehouseId);
-        }
-
         dbContext.InventoryTransactions.Add(new InventoryTransactionEntity
         {
             TransactionId = Guid.NewGuid().ToString(),
